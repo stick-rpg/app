@@ -1,0 +1,2 @@
+CREATE USER stick WITH PASSWORD 'stick';
+CREATE DATABASE stick OWNER stick;

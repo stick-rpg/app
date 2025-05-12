@@ -8,9 +8,11 @@
   "devDependencies": {
     "@types/node": "^22.15.17",
     "@types/ws": "^8.18.1",
+    "prisma": "^6.7.0",
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@prisma/client": "^6.7.0",
     "ws": "^8.18.2"
   }
 }
