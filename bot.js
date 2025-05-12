@@ -79,7 +79,7 @@ const bot = BotManager.getCurrentBot();
 function onMessage(msg) {
   const content = msg.content;
   const room = msg.room;
-  const author = msg.author;
+  const author = msg.author.name;
 
   session[room] = session[room] || {};
   session[room][author] = (content) => msg.reply(content);
