@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "ws": "^8.18.2"
+  }
+}
