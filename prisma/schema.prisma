@@ -20,7 +20,8 @@ model User {
   updatedAt    DateTime @updatedAt
   lastPlayedAt DateTime @default(now())
 
-  inventory UserItem[]
+  inventory  UserItem[]
+  characters Character[]
 
   @@unique([room, author])
 }
@@ -62,19 +63,245 @@ model EnchantmentType {
 enum ItemCategory {
   EQUIPMENT
   CONSUMABLE
-  MATERIAL
-  TRADING
   HARDCODED
 }
 
 model ItemType {
-  id         String       @id @default(uuid()) @db.Uuid
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  name       String
-  category   ItemCategory
-  stackable  Boolean
-  durability Int?
+  id        String       @id @default(uuid()) @db.Uuid
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  name      String
+  category  ItemCategory
 
-  instances UserItem[]
+  equipment       ItemTypeEquipment?
+  consumable      ItemTypeConsumable?
+  hardcoded       ItemTypeHardcoded?
+  instances       UserItem[]
+  appraisalItems  ItemTypeConsumableAppraisalItem[]
+  appraisalSkills CharacterItemTypeConsumableAppraisalSkill[]
+}
+
+model ItemTypeEquipment {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent ItemType @relation(fields: [parentId], references: [id])
+}
+
+model ItemTypeConsumable {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent          ItemType                           @relation(fields: [parentId], references: [id])
+  appraisalLevels ItemTypeConsumableAppraisalLevel[]
+}
+
+model ItemTypeConsumableAppraisalLevel {
+  id         String   @id @default(uuid()) @db.Uuid
+  parentId   String   @db.Uuid
+  level      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  failWeight Float
+
+  parent ItemTypeConsumable                @relation(fields: [parentId], references: [id])
+  items  ItemTypeConsumableAppraisalItem[]
+
+  @@unique([parentId, level])
+}
+
+model ItemTypeConsumableAppraisalItem {
+  id         String   @id @default(uuid()) @db.Uuid
+  parentId   String   @db.Uuid
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  weight     Float
+  itemTypeId String   @db.Uuid
+
+  parent   ItemTypeConsumableAppraisalLevel @relation(fields: [parentId], references: [id])
+  itemType ItemType                         @relation(fields: [itemTypeId], references: [id])
+}
+
+model ItemTypeHardcoded {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @unique @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent ItemType @relation(fields: [parentId], references: [id])
+}
+
+model Character {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  userId    String   @db.Uuid
+
+  strength     Int
+  agility      Int
+  intelligence Int
+
+  user              User                                        @relation(fields: [userId], references: [id])
+  appraisalSkills   CharacterItemTypeConsumableAppraisalSkill[]
+  statGainHistory   CharacterStatGainHistory[]
+  monsterRaidCounts CharacterMonsterRaidCount[]
+}
+
+model UniqueStatAchievement {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+
+  items                UniqueStatAchievementItem[]
+  gainHistory          CharacterStatGainHistory[]
+  monsterTypeRaidCount MonsterTypeRaidCountUniqueAchievement?
+}
+
+model UniqueStatAchievementItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  statType  StatType
+  amount    Int
+
+  parent UniqueStatAchievement @relation(fields: [parentId], references: [id])
+
+  @@unique([parentId, statType])
+}
+
+model RepeatableStatAchievement {
+  id          String   @id @default(uuid()) @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String
+  first       Float
+  coefficient Float
+  increment   Float
+
+  items                RepeatableStatAchievementItem[]
+  gainHistory          CharacterStatGainHistory[]
+  monsterTypeRaidCount MonsterTypeRaidCountRepeatableAchievement?
+}
+
+model RepeatableStatAchievementItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  statType  StatType
+  amount    Int
+
+  parent RepeatableStatAchievement @relation(fields: [parentId], references: [id])
+
+  @@unique([parentId, statType])
+}
+
+enum CharacterStatGainHistoryReasonType {
+  CONSUME_STAT_POINT
+  UNIQUE_STAT_ACHIEVEMENT
+  REPEATABLE_STAT_ACHIEVEMENT
+}
+
+model CharacterStatGainHistory {
+  id                             String                             @id @default(uuid()) @db.Uuid
+  characterId                    String                             @db.Uuid
+  createdAt                      DateTime                           @default(now())
+  reasonType                     CharacterStatGainHistoryReasonType
+  statPointIndex                 Int?
+  uniqueStatAchievementId        String?                            @db.Uuid
+  repeatableStatAchievementId    String?                            @db.Uuid
+  repeatableStatAchievementIndex Int?
+
+  character                 Character                      @relation(fields: [characterId], references: [id])
+  uniqueStatAchievement     UniqueStatAchievement?         @relation(fields: [uniqueStatAchievementId], references: [id])
+  repeatableStatAchievement RepeatableStatAchievement?     @relation(fields: [repeatableStatAchievementId], references: [id])
+  items                     CharacterStatGainHistoryItem[]
+
+  @@unique([characterId, statPointIndex])
+  @@unique([characterId, uniqueStatAchievementId])
+  @@unique([characterId, repeatableStatAchievementId, repeatableStatAchievementIndex])
+}
+
+enum StatType {
+  STRENGTH
+  AGILITY
+  INTELLIGENCE
+}
+
+model CharacterStatGainHistoryItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @db.Uuid
+  createdAt DateTime @default(now())
+  statType  StatType
+  amount    Int
+  before    Int
+  after     Int
+
+  parent CharacterStatGainHistory @relation(fields: [parentId], references: [id])
+
+  @@unique([parentId, statType])
+}
+
+model CharacterItemTypeConsumableAppraisalSkill {
+  id          String   @id @default(uuid()) @db.Uuid
+  characterId String   @db.Uuid
+  itemTypeId  String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  character Character @relation(fields: [characterId], references: [id])
+  itemType  ItemType  @relation(fields: [itemTypeId], references: [id])
+}
+
+model MonsterType {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+
+  characterMonsterRaidCounts     CharacterMonsterRaidCount[]
+  raidCountUniqueAchievement     MonsterTypeRaidCountUniqueAchievement[]
+  raidCountRepeatableAchievement MonsterTypeRaidCountRepeatableAchievement?
+}
+
+model MonsterTypeRaidCountUniqueAchievement {
+  id            String   @id @default(uuid()) @db.Uuid
+  monsterTypeId String   @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  achievementId String   @db.Uuid @unique
+  count         Int
+
+  monsterType MonsterType           @relation(fields: [monsterTypeId], references: [id])
+  achievement UniqueStatAchievement @relation(fields: [achievementId], references: [id])
+}
+
+model MonsterTypeRaidCountRepeatableAchievement {
+  id            String   @id @default(uuid()) @db.Uuid
+  monsterTypeId String   @unique @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  achievementId String   @db.Uuid @unique
+
+  monsterType MonsterType               @relation(fields: [monsterTypeId], references: [id])
+  achievement RepeatableStatAchievement @relation(fields: [achievementId], references: [id])
+}
+
+model CharacterMonsterRaidCount {
+  id            String   @id @default(uuid()) @db.Uuid
+  characterId   String   @db.Uuid
+  monsterTypeId String   @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  count         Int
+
+  character   Character   @relation(fields: [characterId], references: [id])
+  monsterType MonsterType @relation(fields: [monsterTypeId], references: [id])
 }
