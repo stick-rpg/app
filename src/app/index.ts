@@ -69,6 +69,7 @@ export class App {
   ): Promise<void> {
     if (content === "종료") {
       this.activeSessions.delete(key(room, author));
+      this.activeUsers.delete(state.game.userId);
     } else {
       return await state.game.message(content);
     }

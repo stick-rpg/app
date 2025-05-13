@@ -3,7 +3,7 @@ export class Game {
 
   constructor(
     private sendMessage: (content: string) => void,
-    private readonly userId: string
+    public readonly userId: string
   ) {
     this.lastActive = new Date();
   }
