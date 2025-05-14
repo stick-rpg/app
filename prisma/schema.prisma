@@ -73,12 +73,13 @@ model ItemType {
   name      String
   category  ItemCategory
 
-  equipment       ItemTypeEquipment?
-  consumable      ItemTypeConsumable?
-  hardcoded       ItemTypeHardcoded?
-  instances       UserItem[]
-  appraisalItems  ItemTypeConsumableAppraisalItem[]
-  appraisalSkills CharacterItemTypeConsumableAppraisalSkill[]
+  equipment                     ItemTypeEquipment?
+  consumable                    ItemTypeConsumable?
+  hardcoded                     ItemTypeHardcoded?
+  instances                     UserItem[]
+  appraisalItems                ItemTypeConsumableAppraisalItem[]
+  appraisalSkills               CharacterItemTypeConsumableAppraisalSkill[]
+  skillUsageCombatResourcePoint SkillUsageCombatResourcePoint[]
 }
 
 model ItemTypeEquipment {
@@ -91,10 +92,12 @@ model ItemTypeEquipment {
 }
 
 model ItemTypeConsumable {
-  id        String   @id @default(uuid()) @db.Uuid
-  parentId  String   @unique @db.Uuid
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  parentId    String   @unique @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  onConsumeId String?  @db.Uuid
+  onThrowId   String?  @db.Uuid
 
   parent          ItemType                           @relation(fields: [parentId], references: [id])
   appraisalLevels ItemTypeConsumableAppraisalLevel[]
@@ -147,9 +150,152 @@ model Character {
   intelligence Int
 
   user              User                                        @relation(fields: [userId], references: [id])
+  skills            CharacterSkill[]
   appraisalSkills   CharacterItemTypeConsumableAppraisalSkill[]
   statGainHistory   CharacterStatGainHistory[]
   monsterRaidCounts CharacterMonsterRaidCount[]
+}
+
+model CharacterSkill {
+  id          String   @id @default(uuid()) @db.Uuid
+  characterId String   @db.Uuid
+  skillId     String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  level       Int
+  experience  Float
+
+  character Character @relation(fields: [characterId], references: [id])
+  skill     Skill     @relation(fields: [skillId], references: [id])
+
+  @@unique([characterId, skillId])
+}
+
+model Skill {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+
+  levels     SkillLevel[]
+  characters CharacterSkill[]
+}
+
+model SkillLevel {
+  id            String   @id @default(uuid()) @db.Uuid
+  parentId      String   @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  level         Int
+  experience    Float
+  combatUsageId String?  @unique @db.Uuid
+
+  parent      Skill             @relation(fields: [parentId], references: [id])
+  combatUsage SkillUsageCombat? @relation(fields: [combatUsageId], references: [id])
+
+  @@unique([parentId, level])
+}
+
+enum SkillCostFormulaType {
+  SUM // strength = mp + rp * coeffecient, effect = mp
+  LINEAR // strength = effect =  mp = rp / coeffecient
+  CONSTANT // strength = mp, effect = rp * coeffecient
+}
+
+model SkillUsageCombat {
+  id          String               @id @default(uuid()) @db.Uuid
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  name        String
+  formulaType SkillCostFormulaType
+
+  parent         SkillLevel?
+  resourcePoints SkillUsageCombatResourcePoint[]
+  strengths      SkillUsageCombatStrength[]
+  effects        SkillUsageCombatEffect[]
+}
+
+model SkillUsageCombatResourcePoint {
+  id         String   @id @default(uuid()) @db.Uuid
+  parentId   String   @db.Uuid
+  itemTypeId String   @db.Uuid
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  amount     Int
+
+  parent   SkillUsageCombat @relation(fields: [parentId], references: [id])
+  itemType ItemType         @relation(fields: [itemTypeId], references: [id])
+
+  @@unique([parentId, itemTypeId])
+}
+
+model SkillUsageCombatStrength {
+  id          String   @id @default(uuid()) @db.Uuid
+  parentId    String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  level       Int
+  mp          Float
+  coefficient Float
+
+  parent SkillUsageCombat @relation(fields: [parentId], references: [id])
+
+  @@unique([parentId, level])
+}
+
+enum SkillUsageCombatEffectType {
+  DAMAGE
+  STATUS_EFFECT
+}
+
+model SkillUsageCombatEffect {
+  id                       String                     @id @default(uuid()) @db.Uuid
+  parentId                 String                     @db.Uuid
+  createdAt                DateTime                   @default(now())
+  updatedAt                DateTime                   @updatedAt
+  type                     SkillUsageCombatEffectType
+  pointToDamageCoefficient Float?
+  statusEffectId           String?                    @db.Uuid
+
+  parent       SkillUsageCombat                    @relation(fields: [parentId], references: [id])
+  statusEffect SkillUsageCombatEffectStatusEffect?
+}
+
+model SkillUsageCombatEffectStatusEffect {
+  id             String   @id @default(uuid()) @db.Uuid
+  parentId       String   @unique @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  statusEffectId String   @db.Uuid
+
+  parent       SkillUsageCombatEffect @relation(fields: [parentId], references: [id])
+  statusEffect StatusEffect           @relation(fields: [statusEffectId], references: [id])
+}
+
+model StatusEffect {
+  id            String   @id @default(uuid()) @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  name          String
+  description   String
+  durationTick  Int
+  damagePerTick Float
+
+  statChanges             StatusEffectStatChange[]
+  skillUsageCombatEffects SkillUsageCombatEffectStatusEffect[]
+}
+
+model StatusEffectStatChange {
+  id        String   @id @default(uuid()) @db.Uuid
+  parentId  String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  statType  StatType
+  amount    Int
+
+  parent StatusEffect @relation(fields: [parentId], references: [id])
+
+  @@unique([parentId, statType])
 }
 
 model UniqueStatAchievement {
@@ -276,7 +422,7 @@ model MonsterTypeRaidCountUniqueAchievement {
   monsterTypeId String   @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  achievementId String   @db.Uuid @unique
+  achievementId String   @unique @db.Uuid
   count         Int
 
   monsterType MonsterType           @relation(fields: [monsterTypeId], references: [id])
@@ -288,7 +434,7 @@ model MonsterTypeRaidCountRepeatableAchievement {
   monsterTypeId String   @unique @db.Uuid
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  achievementId String   @db.Uuid @unique
+  achievementId String   @unique @db.Uuid
 
   monsterType MonsterType               @relation(fields: [monsterTypeId], references: [id])
   achievement RepeatableStatAchievement @relation(fields: [achievementId], references: [id])
